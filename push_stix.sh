@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Script to push STIX objects to a local TAXII2 server
+# Script to push STIX objects to a local TAXII2 server (with logging), without persisting bundle files
 
+# Configuration (loaded from .config)
 source .config
 FILES_DIR="./downloaded"
 PROCESSED_DIR="./processed"
@@ -23,9 +24,12 @@ for file in "$FILES_DIR"/*.json; do
   [[ -e "$file" ]] || continue
   log "Processing file: $file"
 
+  # Generate UUID for bundle
+  BUNDLE_ID="bundle--$(uuidgen)"
   # Stream STIX bundle directly to curl, avoiding intermediate file
-  HTTP_CODE=$(jq -c '{type: "bundle", id: ("bundle--" + (uuidgen)), objects: .objects}' "$file" \
-    | curl -s -H "Authorization: $LOCAL_TAXII_API_KEY" \
+  HTTP_CODE=$(jq -c --arg id "$BUNDLE_ID" '{type: "bundle", id: $id, objects: .objects}' "$file" \
+    | curl -s \
+      -H "Authorization: $LOCAL_TAXII_API_KEY" \
       -X POST "$LOCAL_TAXII_URL" \
       -H "Content-Type: $CONTENT_TYPE" \
       --data-binary @- -w "%{http_code}" -o /dev/null)
